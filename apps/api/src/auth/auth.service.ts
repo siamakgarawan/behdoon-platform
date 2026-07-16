@@ -1,16 +1,29 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import { JwtService } from '@nestjs/jwt';
+import { UserRole } from '@prisma/client';
+import * as bcrypt from 'bcrypt';
+import * as crypto from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
+import { RedisService } from '../redis/redis.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
-import { JwtService } from '@nestjs/jwt';
-import * as bcrypt from 'bcrypt';
+
+const REFRESH_TOKEN_PREFIX = 'refresh:';
 
 @Injectable()
 export class AuthService {
+  private readonly refreshTtlSeconds: number;
+
   constructor(
     private prisma: PrismaService,
     private jwtService: JwtService,
-  ) {}
+    private redis: RedisService,
+    config: ConfigService,
+  ) {
+    const days = Number(config.get<string>('REFRESH_TOKEN_TTL_DAYS') ?? '30');
+    this.refreshTtlSeconds = days * 24 * 60 * 60;
+  }
 
   async register(data: RegisterDto) {
     const hashedPassword = await bcrypt.hash(data.password, 10);
@@ -49,14 +62,54 @@ export class AuthService {
       throw new UnauthorizedException('Invalid credentials');
     }
 
-    const payload = {
-      sub: user.id,
-      email: user.email,
-      role: user.role,
-    };
+    return this.issueTokens(user.id, user.email, user.role);
+  }
 
-    return {
-      access_token: this.jwtService.sign(payload),
-    };
+  async refresh(refreshToken: string) {
+    const key = REFRESH_TOKEN_PREFIX + refreshToken;
+    const userId = await this.redis.getClient().get(key);
+
+    if (!userId) {
+      throw new UnauthorizedException('Invalid refresh token');
+    }
+
+    // rotate: the old refresh token is single-use
+    await this.redis.getClient().del(key);
+
+    const user = await this.prisma.user.findUnique({
+      where: { id: Number(userId) },
+    });
+
+    if (!user) {
+      throw new UnauthorizedException('Invalid refresh token');
+    }
+
+    return this.issueTokens(user.id, user.email, user.role);
+  }
+
+  async logout(refreshToken: string): Promise<{ success: true }> {
+    await this.redis.getClient().del(REFRESH_TOKEN_PREFIX + refreshToken);
+    return { success: true };
+  }
+
+  private async issueTokens(
+    userId: number,
+    email: string | null,
+    role: UserRole,
+  ) {
+    const payload = { sub: userId, email, role };
+    const accessToken = this.jwtService.sign(payload);
+    const refreshToken = crypto.randomBytes(40).toString('hex');
+
+    await this.redis
+      .getClient()
+      .set(
+        REFRESH_TOKEN_PREFIX + refreshToken,
+        String(userId),
+        'EX',
+        this.refreshTtlSeconds,
+      );
+
+    return { access_token: accessToken, refresh_token: refreshToken };
   }
 }

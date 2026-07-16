@@ -3,12 +3,15 @@ import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
+import { RefreshDto } from './dto/refresh.dto';
 
 describe('AuthController', () => {
   let controller: AuthController;
   const authServiceMock = {
     register: jest.fn(),
     login: jest.fn(),
+    refresh: jest.fn(),
+    logout: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -43,5 +46,21 @@ describe('AuthController', () => {
     await controller.login(dto);
 
     expect(authServiceMock.login).toHaveBeenCalledWith(dto);
+  });
+
+  it('delegates refresh to AuthService', async () => {
+    const dto: RefreshDto = { refreshToken: 'some-token' };
+
+    await controller.refresh(dto);
+
+    expect(authServiceMock.refresh).toHaveBeenCalledWith('some-token');
+  });
+
+  it('delegates logout to AuthService', async () => {
+    const dto: RefreshDto = { refreshToken: 'some-token' };
+
+    await controller.logout(dto);
+
+    expect(authServiceMock.logout).toHaveBeenCalledWith('some-token');
   });
 });
