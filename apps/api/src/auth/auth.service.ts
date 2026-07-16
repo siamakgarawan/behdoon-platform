@@ -1,4 +1,8 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import {
+  Injectable,
+  UnauthorizedException,
+  UnprocessableEntityException,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { UserRole } from '@prisma/client';
@@ -6,10 +10,14 @@ import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import { RedisService } from '../redis/redis.service';
+import { SmsService } from '../sms/sms.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 
 const REFRESH_TOKEN_PREFIX = 'refresh:';
+const OTP_PREFIX = 'otp:';
+const OTP_TTL_SECONDS = 120;
+const OTP_RESEND_COOLDOWN_SECONDS = 30;
 
 @Injectable()
 export class AuthService {
@@ -19,6 +27,7 @@ export class AuthService {
     private prisma: PrismaService,
     private jwtService: JwtService,
     private redis: RedisService,
+    private sms: SmsService,
     config: ConfigService,
   ) {
     const days = Number(config.get<string>('REFRESH_TOKEN_TTL_DAYS') ?? '30');
@@ -61,6 +70,42 @@ export class AuthService {
     if (!isPasswordValid) {
       throw new UnauthorizedException('Invalid credentials');
     }
+
+    return this.issueTokens(user.id, user.email, user.role);
+  }
+
+  async requestOtp(phone: string): Promise<{ success: true }> {
+    const key = OTP_PREFIX + phone;
+    const remainingTtl = await this.redis.getClient().ttl(key);
+
+    if (remainingTtl > OTP_TTL_SECONDS - OTP_RESEND_COOLDOWN_SECONDS) {
+      throw new UnprocessableEntityException(
+        'Please wait before requesting another code',
+      );
+    }
+
+    const code = crypto.randomInt(100000, 1000000).toString();
+    await this.redis.getClient().set(key, code, 'EX', OTP_TTL_SECONDS);
+    this.sms.send(phone, `Behdoon verification code: ${code}`);
+
+    return { success: true };
+  }
+
+  async verifyOtp(phone: string, code: string) {
+    const key = OTP_PREFIX + phone;
+    const stored = await this.redis.getClient().get(key);
+
+    if (!stored || stored !== code) {
+      throw new UnauthorizedException('Invalid or expired code');
+    }
+
+    await this.redis.getClient().del(key);
+
+    const user = await this.prisma.user.upsert({
+      where: { phone },
+      create: { phone, role: UserRole.CUSTOMER },
+      update: {},
+    });
 
     return this.issueTokens(user.id, user.email, user.role);
   }

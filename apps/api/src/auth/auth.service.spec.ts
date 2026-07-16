@@ -1,11 +1,15 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { UnauthorizedException } from '@nestjs/common';
+import {
+  UnauthorizedException,
+  UnprocessableEntityException,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import { AuthService } from './auth.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { RedisService } from '../redis/redis.service';
+import { SmsService } from '../sms/sms.service';
 
 describe('AuthService', () => {
   let service: AuthService;
@@ -13,6 +17,7 @@ describe('AuthService', () => {
     user: {
       create: jest.fn(),
       findUnique: jest.fn(),
+      upsert: jest.fn(),
     },
   };
   const jwtServiceMock = {
@@ -22,9 +27,13 @@ describe('AuthService', () => {
     get: jest.fn(),
     set: jest.fn(),
     del: jest.fn(),
+    ttl: jest.fn(),
   };
   const redisServiceMock = {
     getClient: jest.fn().mockReturnValue(redisClientMock),
+  };
+  const smsServiceMock = {
+    send: jest.fn(),
   };
   const configServiceMock = {
     get: jest.fn().mockReturnValue('30'),
@@ -37,6 +46,7 @@ describe('AuthService', () => {
         { provide: PrismaService, useValue: prismaMock },
         { provide: JwtService, useValue: jwtServiceMock },
         { provide: RedisService, useValue: redisServiceMock },
+        { provide: SmsService, useValue: smsServiceMock },
         { provide: ConfigService, useValue: configServiceMock },
       ],
     }).compile();
@@ -146,5 +156,68 @@ describe('AuthService', () => {
     await service.logout('some-token');
 
     expect(redisClientMock.del).toHaveBeenCalledWith('refresh:some-token');
+  });
+
+  describe('OTP', () => {
+    it('generates a 6-digit code, stores it in Redis, and "sends" it', async () => {
+      redisClientMock.ttl.mockResolvedValue(-2); // no existing key
+
+      await service.requestOtp('+989121234567');
+
+      expect(redisClientMock.set).toHaveBeenCalledWith(
+        'otp:+989121234567',
+        expect.stringMatching(/^\d{6}$/),
+        'EX',
+        120,
+      );
+      expect(smsServiceMock.send).toHaveBeenCalledWith(
+        '+989121234567',
+        expect.stringContaining('verification code'),
+      );
+    });
+
+    it('rejects a second OTP request within the resend cooldown', async () => {
+      redisClientMock.ttl.mockResolvedValue(110); // just issued
+
+      await expect(service.requestOtp('+989121234567')).rejects.toThrow(
+        UnprocessableEntityException,
+      );
+    });
+
+    it('allows a resend once the cooldown has elapsed', async () => {
+      redisClientMock.ttl.mockResolvedValue(80); // 40s elapsed of the 120s TTL
+
+      await expect(service.requestOtp('+989121234567')).resolves.toEqual({
+        success: true,
+      });
+    });
+
+    it('rejects verification with a wrong or missing code', async () => {
+      redisClientMock.get.mockResolvedValue(null);
+
+      await expect(
+        service.verifyOtp('+989121234567', '000000'),
+      ).rejects.toThrow(UnauthorizedException);
+    });
+
+    it('creates a new user on first successful verification', async () => {
+      redisClientMock.get.mockResolvedValue('123456');
+      prismaMock.user.upsert.mockResolvedValue({
+        id: 9,
+        phone: '+989121234567',
+        email: null,
+        role: 'CUSTOMER',
+      });
+
+      const result = await service.verifyOtp('+989121234567', '123456');
+
+      expect(redisClientMock.del).toHaveBeenCalledWith('otp:+989121234567');
+      expect(prismaMock.user.upsert).toHaveBeenCalledWith({
+        where: { phone: '+989121234567' },
+        create: { phone: '+989121234567', role: 'CUSTOMER' },
+        update: {},
+      });
+      expect(result.access_token).toBe('signed.jwt.token');
+    });
   });
 });

@@ -4,6 +4,8 @@ import { AuthService } from './auth.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { RefreshDto } from './dto/refresh.dto';
+import { RequestOtpDto } from './dto/request-otp.dto';
+import { VerifyOtpDto } from './dto/verify-otp.dto';
 
 describe('AuthController', () => {
   let controller: AuthController;
@@ -12,6 +14,8 @@ describe('AuthController', () => {
     login: jest.fn(),
     refresh: jest.fn(),
     logout: jest.fn(),
+    requestOtp: jest.fn(),
+    verifyOtp: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -62,5 +66,24 @@ describe('AuthController', () => {
     await controller.logout(dto);
 
     expect(authServiceMock.logout).toHaveBeenCalledWith('some-token');
+  });
+
+  it('delegates otp/request to AuthService', async () => {
+    const dto: RequestOtpDto = { phone: '+989121234567' };
+
+    await controller.requestOtp(dto);
+
+    expect(authServiceMock.requestOtp).toHaveBeenCalledWith('+989121234567');
+  });
+
+  it('delegates otp/verify to AuthService', async () => {
+    const dto: VerifyOtpDto = { phone: '+989121234567', code: '123456' };
+
+    await controller.verifyOtp(dto);
+
+    expect(authServiceMock.verifyOtp).toHaveBeenCalledWith(
+      '+989121234567',
+      '123456',
+    );
   });
 });

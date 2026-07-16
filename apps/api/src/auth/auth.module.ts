@@ -5,12 +5,14 @@ import { JwtModule } from '@nestjs/jwt';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { PrismaModule } from '../prisma/prisma.module';
+import { SmsModule } from '../sms/sms.module';
 import { JwtStrategy } from './jwt.strategy/jwt.strategy';
 
 @Module({
   imports: [
     PrismaModule,
     ConfigModule,
+    SmsModule,
 
     JwtModule.registerAsync({
       inject: [ConfigService],

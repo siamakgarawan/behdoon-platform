@@ -5,6 +5,8 @@ import { AuthService } from './auth.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { RefreshDto } from './dto/refresh.dto';
+import { RequestOtpDto } from './dto/request-otp.dto';
+import { VerifyOtpDto } from './dto/verify-otp.dto';
 import { JwtGuard } from './jwt/jwt.guard';
 
 interface AuthenticatedRequest extends Request {
@@ -28,6 +30,16 @@ export class AuthController {
   @Post('login')
   login(@Body() data: LoginDto) {
     return this.authService.login(data);
+  }
+
+  @Post('otp/request')
+  requestOtp(@Body() data: RequestOtpDto) {
+    return this.authService.requestOtp(data.phone);
+  }
+
+  @Post('otp/verify')
+  verifyOtp(@Body() data: VerifyOtpDto) {
+    return this.authService.verifyOtp(data.phone, data.code);
   }
 
   @Post('refresh')
