@@ -35,7 +35,7 @@ services:
     restart: always
     environment:
       POSTGRES_USER: behdoon
-      POSTGRES_PASSWORD: behdoon_password
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set in .env}
       POSTGRES_DB: behdoon
     ports:
       - "5433:5432"
