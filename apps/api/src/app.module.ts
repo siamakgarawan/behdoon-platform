@@ -7,6 +7,7 @@ import { RedisModule } from './redis/redis.module';
 import { UsersModule } from './users/users.module';
 import { AuthModule } from './auth/auth.module';
 import { CategoriesModule } from './categories/categories.module';
+import { ProvidersModule } from './providers/providers.module';
 
 @Module({
   imports: [
@@ -18,6 +19,7 @@ import { CategoriesModule } from './categories/categories.module';
     UsersModule,
     AuthModule,
     CategoriesModule,
+    ProvidersModule,
   ],
   controllers: [AppController],
   providers: [AppService],
