@@ -1,0 +1,53 @@
+services:
+
+  web:
+    build:
+      context: ./apps/web
+    container_name: behdoon-web
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./apps/web:/app
+      - /app/node_modules
+    environment:
+      NODE_ENV: development
+    depends_on:
+      - api
+
+  api:
+    build:
+      context: ./apps/api
+    container_name: behdoon-api
+    ports:
+      - "3001:3000"
+    volumes:
+      - ./apps/api:/app
+      - /app/node_modules
+    environment:
+      NODE_ENV: development
+    depends_on:
+      - postgres
+      - redis
+
+  postgres:
+    image: postgres:16
+    container_name: behdoon-postgres
+    restart: always
+    environment:
+      POSTGRES_USER: behdoon
+      POSTGRES_PASSWORD: behdoon_password
+      POSTGRES_DB: behdoon
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7
+    container_name: behdoon-redis
+    restart: always
+    ports:
+      - "6379:6379"
+
+volumes:
+  postgres_data:
