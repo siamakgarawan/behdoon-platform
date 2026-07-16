@@ -1,6 +1,9 @@
 import { Controller, Get, UseGuards } from '@nestjs/common';
+import { UserRole } from '@prisma/client';
 import { PrismaService } from './prisma/prisma.service';
 import { JwtGuard } from './auth/jwt/jwt.guard';
+import { RolesGuard } from './auth/guards/roles.guard';
+import { Roles } from './auth/decorators/roles.decorator';
 
 @Controller()
 export class AppController {
@@ -11,7 +14,8 @@ export class AppController {
     return 'Behdoon API is running';
   }
 
-  @UseGuards(JwtGuard)
+  @UseGuards(JwtGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
   @Get('users')
   async getUsers() {
     return this.prisma.user.findMany({
