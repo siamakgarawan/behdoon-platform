@@ -17,7 +17,7 @@ import { JwtStrategy } from './jwt.strategy/jwt.strategy';
       useFactory: (config: ConfigService) => ({
         secret: config.get<string>('JWT_SECRET'),
         signOptions: {
-          // the `ms` package's StringValue brand can't be satisfied by ConfigService's plain string return
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- `ms` package's StringValue brand can't be satisfied by ConfigService's plain string return
           expiresIn: (config.get<string>('JWT_EXPIRES') || '15m') as any,
         },
       }),
@@ -26,14 +26,8 @@ import { JwtStrategy } from './jwt.strategy/jwt.strategy';
 
   controllers: [AuthController],
 
-  providers: [
-    AuthService,
-    JwtStrategy,
-  ],
+  providers: [AuthService, JwtStrategy],
 
-  exports: [
-    AuthService,
-    JwtModule,
-  ],
+  exports: [AuthService, JwtModule],
 })
 export class AuthModule {}
