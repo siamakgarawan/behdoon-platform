@@ -13,65 +13,157 @@ enum UserRole {
   ADMIN
 }
 
-enum BookingStatus {
-  PENDING
-  CONFIRMED
+enum PriceType {
+  FIXED
+  HOURLY
+  QUOTE
+}
+
+enum JobStatus {
+  REQUESTED
+  QUOTED
+  ACCEPTED
+  SCHEDULED
+  IN_PROGRESS
   COMPLETED
+  PAID
   CANCELLED
+  DISPUTED
 }
 
 model User {
-  id        Int      @id @default(autoincrement())
+  id        Int       @id @default(autoincrement())
   name      String?
-  email     String   @unique
+  email     String?   @unique
+  phone     String?   @unique
   password  String?
-  role      UserRole @default(CUSTOMER)
-  createdAt DateTime @default(now())
+  role      UserRole  @default(CUSTOMER)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @default(now()) @updatedAt
+  deletedAt DateTime?
 
-  provider ProviderProfile?
-  bookings Booking[]
+  provider  ProviderProfile?
+  addresses Address[]
+  jobs      Job[]
+
+  @@index([role])
 }
 
 model ProviderProfile {
-  id       Int     @id @default(autoincrement())
-  userId   Int     @unique
-  bio      String?
-  verified Boolean @default(false)
+  id        Int       @id @default(autoincrement())
+  userId    Int       @unique
+  bio       String?
+  verified  Boolean   @default(false)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @default(now()) @updatedAt
+  deletedAt DateTime?
 
-  user     User      @relation(fields: [userId], references: [id])
-  services Service[]
+  user         User          @relation(fields: [userId], references: [id])
+  services     Service[]
+  serviceAreas ServiceArea[]
+  jobs         Job[]
+
+  @@index([verified])
+}
+
+model ServiceArea {
+  id         Int      @id @default(autoincrement())
+  providerId Int
+  city       String
+  district   String?
+  radiusKm   Int?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @default(now()) @updatedAt
+
+  provider ProviderProfile @relation(fields: [providerId], references: [id])
+
+  @@index([providerId])
+  @@index([city])
 }
 
 model Category {
-  id       Int       @id @default(autoincrement())
-  name     String
+  id        Int       @id @default(autoincrement())
+  name      String
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @default(now()) @updatedAt
+  deletedAt DateTime?
+
   services Service[]
 }
 
 model Service {
-  id          Int     @id @default(autoincrement())
+  id          Int       @id @default(autoincrement())
   title       String
   description String?
-  price       Int
-  duration    Int
+  priceType   PriceType
+  price       Int?
+  duration    Int?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @default(now()) @updatedAt
+  deletedAt   DateTime?
 
   providerId Int
   categoryId Int
 
   provider ProviderProfile @relation(fields: [providerId], references: [id])
   category Category        @relation(fields: [categoryId], references: [id])
+  jobs     Job[]
 
-  bookings Booking[]
+  @@index([providerId])
+  @@index([categoryId])
 }
 
-model Booking {
-  id     Int           @id @default(autoincrement())
-  date   DateTime
-  status BookingStatus @default(PENDING)
+model Address {
+  id         Int      @id @default(autoincrement())
+  userId     Int
+  label      String?
+  city       String
+  district   String?
+  line1      String
+  line2      String?
+  postalCode String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @default(now()) @updatedAt
+
+  user User  @relation(fields: [userId], references: [id])
+  jobs Job[]
+
+  @@index([userId])
+}
+
+model Quote {
+  id        Int      @id @default(autoincrement())
+  jobId     Int      @unique
+  amount    Int
+  note      String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+
+  job Job @relation(fields: [jobId], references: [id])
+}
+
+model Job {
+  id          Int       @id @default(autoincrement())
+  status      JobStatus @default(REQUESTED)
+  scheduledAt DateTime?
+  completedAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @default(now()) @updatedAt
+  deletedAt   DateTime?
 
   customerId Int
+  providerId Int
   serviceId  Int
+  addressId  Int
 
-  customer User    @relation(fields: [customerId], references: [id])
-  service  Service @relation(fields: [serviceId], references: [id])
+  customer User            @relation(fields: [customerId], references: [id])
+  provider ProviderProfile @relation(fields: [providerId], references: [id])
+  service  Service         @relation(fields: [serviceId], references: [id])
+  address  Address         @relation(fields: [addressId], references: [id])
+  quote    Quote?
+
+  @@index([customerId])
+  @@index([providerId])
+  @@index([serviceId])
+  @@index([status])
 }
