@@ -146,7 +146,7 @@ export class AppointmentsService {
         skip: (page - 1) * limit,
         take: limit,
         orderBy: { startAt: 'desc' as const },
-        include: { service: true, salon: true },
+        include: { service: true, salon: true, review: true },
       }),
       this.prisma.appointment.count({ where }),
     ]);
