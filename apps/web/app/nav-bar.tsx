@@ -35,22 +35,38 @@ export function NavBar() {
         </Link>
         <nav className="flex items-center gap-4 text-sm">
           <Link
-            href="/services"
+            href="/salons"
             className="text-zinc-700 hover:text-zinc-900 dark:text-zinc-300 dark:hover:text-zinc-50"
           >
-            خدمات
+            سالن‌ها
           </Link>
-          {loggedIn ? (
-            <button
-              type="button"
-              onClick={() => {
-                clearTokens();
-                window.location.href = "/";
-              }}
+          {loggedIn && (
+            <Link
+              href="/appointments"
               className="text-zinc-700 hover:text-zinc-900 dark:text-zinc-300 dark:hover:text-zinc-50"
             >
-              خروج
-            </button>
+              نوبت‌های من
+            </Link>
+          )}
+          {loggedIn ? (
+            <>
+              <Link
+                href="/profile"
+                className="text-zinc-700 hover:text-zinc-900 dark:text-zinc-300 dark:hover:text-zinc-50"
+              >
+                حساب من
+              </Link>
+              <button
+                type="button"
+                onClick={() => {
+                  clearTokens();
+                  window.location.href = "/";
+                }}
+                className="text-zinc-700 hover:text-zinc-900 dark:text-zinc-300 dark:hover:text-zinc-50"
+              >
+                خروج
+              </button>
+            </>
           ) : (
             <>
               <Link
@@ -61,7 +77,7 @@ export function NavBar() {
               </Link>
               <Link
                 href="/register"
-                className="rounded bg-zinc-900 px-3 py-1.5 text-white dark:bg-zinc-50 dark:text-zinc-900"
+                className="rounded bg-rose-600 px-3 py-1.5 text-white hover:bg-rose-700"
               >
                 ثبت‌نام
               </Link>

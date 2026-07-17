@@ -10,8 +10,8 @@ const vazirmatn = localFont({
 });
 
 export const metadata: Metadata = {
-  title: "بهدون | مارکت‌پلیس خدمات منزل",
-  description: "پیدا کردن متخصص قابل‌اعتماد برای تعمیرات و خدمات منزل",
+  title: "بهدون | نوبت‌دهی آنلاین سالن و آرایشگاه",
+  description: "سالن و آرایشگاه مورد اعتماد پیدا کنید و نوبت آنلاین رزرو کنید",
 };
 
 export default function RootLayout({

@@ -3,16 +3,47 @@ export interface Category {
   name: string;
 }
 
-export type PriceType = "FIXED" | "HOURLY" | "QUOTE";
+export interface Salon {
+  id: number;
+  userId: number;
+  name: string;
+  bio: string | null;
+  city: string;
+  address: string;
+  verified: boolean;
+}
 
 export interface Service {
   id: number;
   title: string;
   description: string | null;
-  priceType: PriceType;
-  price: number | null;
-  duration: number | null;
+  price: number;
+  durationMin: number;
   category?: Category;
+  salon?: Salon;
+}
+
+export type AppointmentStatus =
+  | "PENDING"
+  | "CONFIRMED"
+  | "COMPLETED"
+  | "CANCELLED"
+  | "NO_SHOW";
+
+export interface Appointment {
+  id: number;
+  status: AppointmentStatus;
+  startAt: string;
+  endAt: string;
+  service: Service;
+  salon: Salon;
+}
+
+export interface WorkingHour {
+  id: number;
+  weekday: number;
+  startTime: string;
+  endTime: string;
 }
 
 export interface Paginated<T> {
@@ -23,4 +54,10 @@ export interface Paginated<T> {
 export interface TokenPair {
   access_token: string;
   refresh_token: string;
+}
+
+export interface Profile {
+  id: number;
+  email: string;
+  role: "CUSTOMER" | "PROVIDER" | "ADMIN";
 }

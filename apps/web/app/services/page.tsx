@@ -1,19 +1,7 @@
 import Link from "next/link";
 import { api } from "@/lib/api";
-import { formatToman } from "@/lib/format";
+import { formatDuration, formatToman } from "@/lib/format";
 import type { Paginated, Service } from "@/lib/types";
-
-function priceLabel(service: Service): string {
-  if (service.priceType === "QUOTE") {
-    return "استعلام قیمت";
-  }
-  if (service.price === null) {
-    return "—";
-  }
-  return service.priceType === "HOURLY"
-    ? `${formatToman(service.price)} / ساعت`
-    : formatToman(service.price);
-}
 
 export default async function ServicesPage({
   searchParams,
@@ -46,22 +34,33 @@ export default async function ServicesPage({
       ) : (
         <div className="mt-6 grid gap-4 sm:grid-cols-2">
           {services.map((service) => (
-            <div
+            <Link
               key={service.id}
-              className="rounded border border-zinc-200 p-4 dark:border-zinc-800"
+              href={`/salons/${service.salon?.id}`}
+              className="rounded-lg border border-zinc-200 p-4 transition hover:border-rose-300 hover:shadow-sm dark:border-zinc-800 dark:hover:border-rose-900"
             >
               <h2 className="font-semibold text-zinc-900 dark:text-zinc-50">
                 {service.title}
               </h2>
+              {service.salon && (
+                <p className="mt-1 text-sm text-zinc-500">
+                  {service.salon.name} — {service.salon.city}
+                </p>
+              )}
               {service.description && (
-                <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
+                <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
                   {service.description}
                 </p>
               )}
-              <p className="mt-3 text-sm font-medium text-zinc-900 dark:text-zinc-50">
-                {priceLabel(service)}
+              <p className="mt-3 flex items-center justify-between text-sm">
+                <span className="font-medium text-zinc-900 dark:text-zinc-50">
+                  {formatToman(service.price)}
+                </span>
+                <span className="text-zinc-500">
+                  {formatDuration(service.durationMin)}
+                </span>
               </p>
-            </div>
+            </Link>
           ))}
         </div>
       )}
