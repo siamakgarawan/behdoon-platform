@@ -54,3 +54,22 @@ export function formatAppointmentDateTime(isoString: string): string {
   const time = formatSlotTime(isoString);
   return `${weekday} ${toPersianDigits(day)}/${toPersianDigits(month)} — ساعت ${time}`;
 }
+
+export function formatRating(average: number | null, count: number): string {
+  if (average === null || count === 0) {
+    return "هنوز امتیازی ثبت نشده";
+  }
+  const stars = "★".repeat(Math.round(average)) + "☆".repeat(5 - Math.round(average));
+  return `${stars} ${toPersianDigits(average.toFixed(1))} (${toPersianDigits(count)} نظر)`;
+}
+
+export function instagramUrl(handle: string): string {
+  const clean = handle.replace(/^@/, "").replace(/^https?:\/\/(www\.)?instagram\.com\//, "");
+  return `https://instagram.com/${clean}`;
+}
+
+export function mapEmbedUrl(latitude: number, longitude: number): string {
+  const delta = 0.01;
+  const bbox = `${longitude - delta},${latitude - delta},${longitude + delta},${latitude + delta}`;
+  return `https://www.openstreetmap.org/export/embed.html?bbox=${bbox}&marker=${latitude},${longitude}`;
+}

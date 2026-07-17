@@ -20,6 +20,9 @@ export default function AppointmentsPage() {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [appointments, setAppointments] = useState<Appointment[] | null>(null);
   const [busyId, setBusyId] = useState<number | null>(null);
+  const [reviewingId, setReviewingId] = useState<number | null>(null);
+  const [reviewRating, setReviewRating] = useState(5);
+  const [reviewComment, setReviewComment] = useState("");
 
   async function load() {
     const token = getAccessToken();
@@ -56,6 +59,30 @@ export default function AppointmentsPage() {
     }
   }
 
+  function openReview(id: number) {
+    setReviewingId(id);
+    setReviewRating(5);
+    setReviewComment("");
+  }
+
+  async function submitReview(id: number) {
+    const token = getAccessToken();
+    if (!token) return;
+
+    setBusyId(id);
+    try {
+      await api.post(
+        `/appointments/${id}/review`,
+        { rating: reviewRating, comment: reviewComment || undefined },
+        token,
+      );
+      setReviewingId(null);
+      await load();
+    } finally {
+      setBusyId(null);
+    }
+  }
+
   if (!profile || !appointments) {
     return (
       <div className="mx-auto max-w-3xl px-4 py-12">
@@ -76,6 +103,8 @@ export default function AppointmentsPage() {
         <div className="mt-6 space-y-3">
           {appointments.map((appt) => {
             const isSalonOwner = appt.salon.userId === profile.id;
+            const canReview =
+              !isSalonOwner && appt.status === "COMPLETED" && !appt.review;
 
             return (
               <div
@@ -103,6 +132,18 @@ export default function AppointmentsPage() {
                     </p>
                   </div>
                 </div>
+
+                {appt.review && (
+                  <p className="mt-3 text-sm text-amber-600 dark:text-amber-400">
+                    {"★".repeat(appt.review.rating)}
+                    {"☆".repeat(5 - appt.review.rating)}
+                    {appt.review.comment && (
+                      <span className="mr-2 text-zinc-600 dark:text-zinc-400">
+                        {appt.review.comment}
+                      </span>
+                    )}
+                  </p>
+                )}
 
                 <div className="mt-3 flex gap-2">
                   {isSalonOwner && appt.status === "PENDING" && (
@@ -135,7 +176,56 @@ export default function AppointmentsPage() {
                       لغو نوبت
                     </button>
                   )}
+                  {canReview && reviewingId !== appt.id && (
+                    <button
+                      type="button"
+                      onClick={() => openReview(appt.id)}
+                      className="rounded border border-amber-300 px-3 py-1 text-sm text-amber-700 hover:bg-amber-50 dark:border-amber-900 dark:text-amber-400"
+                    >
+                      ثبت نظر
+                    </button>
+                  )}
                 </div>
+
+                {reviewingId === appt.id && (
+                  <div className="mt-3 rounded border border-zinc-200 p-3 dark:border-zinc-800">
+                    <div className="flex gap-1 text-xl text-amber-500">
+                      {[1, 2, 3, 4, 5].map((star) => (
+                        <button
+                          key={star}
+                          type="button"
+                          onClick={() => setReviewRating(star)}
+                          aria-label={`${star} ستاره`}
+                        >
+                          {star <= reviewRating ? "★" : "☆"}
+                        </button>
+                      ))}
+                    </div>
+                    <textarea
+                      value={reviewComment}
+                      onChange={(e) => setReviewComment(e.target.value)}
+                      placeholder="نظر شما (اختیاری)"
+                      className="mt-2 w-full rounded border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+                    />
+                    <div className="mt-2 flex gap-2">
+                      <button
+                        type="button"
+                        disabled={busyId === appt.id}
+                        onClick={() => void submitReview(appt.id)}
+                        className="rounded bg-amber-600 px-3 py-1 text-sm text-white hover:bg-amber-700 disabled:opacity-50"
+                      >
+                        ثبت
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setReviewingId(null)}
+                        className="rounded border border-zinc-300 px-3 py-1 text-sm dark:border-zinc-700"
+                      >
+                        انصراف
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             );
           })}

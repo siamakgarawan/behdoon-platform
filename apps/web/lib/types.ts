@@ -3,6 +3,24 @@ export interface Category {
   name: string;
 }
 
+export interface RatingSummary {
+  average: number | null;
+  count: number;
+}
+
+export interface SalonPhoto {
+  id: number;
+  url: string;
+}
+
+export interface Review {
+  id: number;
+  rating: number;
+  comment: string | null;
+  createdAt: string;
+  customer?: { name: string | null };
+}
+
 export interface Salon {
   id: number;
   userId: number;
@@ -10,7 +28,12 @@ export interface Salon {
   bio: string | null;
   city: string;
   address: string;
+  phone: string | null;
+  instagram: string | null;
+  latitude: number | null;
+  longitude: number | null;
   verified: boolean;
+  rating?: RatingSummary;
 }
 
 export interface Service {
@@ -37,6 +60,7 @@ export interface Appointment {
   endAt: string;
   service: Service;
   salon: Salon;
+  review: Review | null;
 }
 
 export interface WorkingHour {

@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { api, ApiError } from "@/lib/api";
 import { getAccessToken } from "@/lib/auth";
 import { formatDuration, formatToman, weekdayName } from "@/lib/format";
-import type { Salon, Service, WorkingHour } from "@/lib/types";
+import type { Salon, SalonPhoto, Service, WorkingHour } from "@/lib/types";
 
 const WEEKDAYS = [0, 1, 2, 3, 4, 5, 6];
 
@@ -24,12 +24,12 @@ function defaultRows(existing: WorkingHour[]): WorkingHourRow[] {
   });
 }
 
+type SalonDetail = Salon & { workingHours: WorkingHour[]; photos: SalonPhoto[] };
+
 export default function SalonDashboardPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
-  const [salon, setSalon] = useState<(Salon & { workingHours: WorkingHour[] }) | null>(
-    null,
-  );
+  const [salon, setSalon] = useState<SalonDetail | null>(null);
   const [services, setServices] = useState<Service[]>([]);
   const [rows, setRows] = useState<WorkingHourRow[]>(defaultRows([]));
   const [message, setMessage] = useState<string | null>(null);
@@ -39,6 +39,13 @@ export default function SalonDashboardPage() {
   const [city, setCity] = useState("");
   const [address, setAddress] = useState("");
   const [bio, setBio] = useState("");
+
+  // profile-info edit state (populated once the salon loads)
+  const [phone, setPhone] = useState("");
+  const [instagram, setInstagram] = useState("");
+  const [latitude, setLatitude] = useState("");
+  const [longitude, setLongitude] = useState("");
+  const [photoUrl, setPhotoUrl] = useState("");
 
   // add-service form state
   const [svcTitle, setSvcTitle] = useState("");
@@ -54,12 +61,13 @@ export default function SalonDashboardPage() {
     }
 
     try {
-      const mine = await api.get<Salon & { workingHours: WorkingHour[] }>(
-        "/salons/me",
-        token,
-      );
+      const mine = await api.get<SalonDetail>("/salons/me", token);
       setSalon(mine);
       setRows(defaultRows(mine.workingHours));
+      setPhone(mine.phone ?? "");
+      setInstagram(mine.instagram ?? "");
+      setLatitude(mine.latitude !== null ? String(mine.latitude) : "");
+      setLongitude(mine.longitude !== null ? String(mine.longitude) : "");
       const myServices = await api.get<Service[]>("/services/mine", token);
       setServices(myServices);
     } catch (err) {
@@ -88,6 +96,51 @@ export default function SalonDashboardPage() {
     } catch {
       setMessage("ثبت سالن انجام نشد");
     }
+  }
+
+  async function saveProfile(event: FormEvent) {
+    event.preventDefault();
+    const token = getAccessToken();
+    if (!token) return;
+
+    try {
+      await api.patch(
+        "/salons/me",
+        {
+          phone: phone || undefined,
+          instagram: instagram || undefined,
+          latitude: latitude ? Number(latitude) : undefined,
+          longitude: longitude ? Number(longitude) : undefined,
+        },
+        token,
+      );
+      setMessage("اطلاعات سالن ذخیره شد");
+      await load();
+    } catch {
+      setMessage("ذخیره‌ی اطلاعات سالن انجام نشد");
+    }
+  }
+
+  async function addPhoto(event: FormEvent) {
+    event.preventDefault();
+    const token = getAccessToken();
+    if (!token || !photoUrl) return;
+
+    try {
+      await api.post("/salons/me/photos", { url: photoUrl }, token);
+      setPhotoUrl("");
+      await load();
+    } catch {
+      setMessage("افزودن عکس انجام نشد");
+    }
+  }
+
+  async function removePhoto(photoId: number) {
+    const token = getAccessToken();
+    if (!token) return;
+
+    await api.delete(`/salons/me/photos/${photoId}`, token);
+    await load();
   }
 
   async function saveWorkingHours(event: FormEvent) {
@@ -199,7 +252,8 @@ export default function SalonDashboardPage() {
           </button>
           <p className="text-xs text-zinc-500">
             پس از ثبت، سالن شما توسط ادمین بررسی و تأیید می‌شود تا در فهرست
-            عمومی نمایش داده شود.
+            عمومی نمایش داده شود. شماره تماس، اینستاگرام، موقعیت روی نقشه و
+            گالری عکس را بعد از ثبت می‌توانید اضافه کنید.
           </p>
         </form>
       </div>
@@ -216,6 +270,93 @@ export default function SalonDashboardPage() {
       </p>
 
       <section className="mt-8">
+        <h2 className="font-semibold text-zinc-900 dark:text-zinc-50">
+          اطلاعات تماس و موقعیت
+        </h2>
+        <form onSubmit={saveProfile} className="mt-3 grid gap-3 sm:grid-cols-2">
+          <input
+            placeholder="شماره تماس (مثلاً +989121234567)"
+            value={phone}
+            onChange={(e) => setPhone(e.target.value)}
+            className="rounded border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+          />
+          <input
+            placeholder="آیدی اینستاگرام"
+            value={instagram}
+            onChange={(e) => setInstagram(e.target.value)}
+            className="rounded border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+          />
+          <input
+            placeholder="عرض جغرافیایی (latitude)"
+            value={latitude}
+            onChange={(e) => setLatitude(e.target.value)}
+            className="rounded border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+          />
+          <input
+            placeholder="طول جغرافیایی (longitude)"
+            value={longitude}
+            onChange={(e) => setLongitude(e.target.value)}
+            className="rounded border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+          />
+          <button
+            type="submit"
+            className="sm:col-span-2 rounded bg-zinc-900 py-2 text-sm text-white dark:bg-zinc-50 dark:text-zinc-900"
+          >
+            ذخیره
+          </button>
+          <p className="text-xs text-zinc-500 sm:col-span-2">
+            برای گرفتن مختصات: در Google Maps روی محل سالن راست‌کلیک کنید،
+            عددها را کپی کنید.
+          </p>
+        </form>
+      </section>
+
+      <section className="mt-10">
+        <h2 className="font-semibold text-zinc-900 dark:text-zinc-50">
+          گالری عکس
+        </h2>
+        {salon.photos.length > 0 && (
+          <div className="mt-3 grid grid-cols-4 gap-2">
+            {salon.photos.map((photo) => (
+              <div key={photo.id} className="group relative">
+                {/* eslint-disable-next-line @next/next/no-img-element -- external, owner-pasted URLs */}
+                <img
+                  src={photo.url}
+                  alt=""
+                  className="aspect-square w-full rounded object-cover"
+                />
+                <button
+                  type="button"
+                  onClick={() => void removePhoto(photo.id)}
+                  className="absolute inset-0 hidden items-center justify-center rounded bg-black/50 text-xs text-white group-hover:flex"
+                >
+                  حذف
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+        <form onSubmit={addPhoto} className="mt-3 flex gap-2">
+          <input
+            placeholder="لینک عکس (https://...)"
+            value={photoUrl}
+            onChange={(e) => setPhotoUrl(e.target.value)}
+            className="flex-1 rounded border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+          />
+          <button
+            type="submit"
+            className="rounded bg-zinc-900 px-4 py-2 text-sm text-white dark:bg-zinc-50 dark:text-zinc-900"
+          >
+            افزودن
+          </button>
+        </form>
+        <p className="mt-2 text-xs text-zinc-500">
+          فعلاً آپلود مستقیم فایل پشتیبانی نمی‌شود؛ لینک عکسی که جایی آپلود
+          کرده‌اید (اینستاگرام، گوگل درایو عمومی و غیره) را وارد کنید.
+        </p>
+      </section>
+
+      <section className="mt-10">
         <h2 className="font-semibold text-zinc-900 dark:text-zinc-50">
           ساعات کاری
         </h2>

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { api } from "@/lib/api";
+import { formatRating } from "@/lib/format";
 import type { Paginated, Salon } from "@/lib/types";
 
 export default async function SalonsPage({
@@ -38,6 +39,9 @@ export default async function SalonsPage({
                 {salon.name}
               </h2>
               <p className="mt-1 text-sm text-zinc-500">{salon.city}</p>
+              <p className="mt-1 text-xs text-amber-600 dark:text-amber-400">
+                {formatRating(salon.rating?.average ?? null, salon.rating?.count ?? 0)}
+              </p>
               {salon.bio && (
                 <p className="mt-2 line-clamp-2 text-sm text-zinc-600 dark:text-zinc-400">
                   {salon.bio}
