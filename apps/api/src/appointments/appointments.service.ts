@@ -8,6 +8,7 @@ import {
 import { AppointmentStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateAppointmentDto } from './dto/create-appointment.dto';
+import { CreateReviewDto } from './dto/create-review.dto';
 
 const ACTIVE_STATUSES: AppointmentStatus[] = [
   AppointmentStatus.PENDING,
@@ -211,6 +212,50 @@ export class AppointmentsService {
       where: { id: appointment.id },
       data: { status: AppointmentStatus.CANCELLED },
     });
+  }
+
+  async review(userId: number, id: number, data: CreateReviewDto) {
+    const appointment = await this.getForCustomer(userId, id);
+    this.assertStatus(
+      appointment.status,
+      AppointmentStatus.COMPLETED,
+      'review',
+    );
+
+    const existing = await this.prisma.review.findUnique({
+      where: { appointmentId: appointment.id },
+    });
+
+    if (existing) {
+      throw new ConflictException('This appointment has already been reviewed');
+    }
+
+    return this.prisma.review.create({
+      data: {
+        appointmentId: appointment.id,
+        salonId: appointment.salonId,
+        customerId: userId,
+        rating: data.rating,
+        comment: data.comment,
+      },
+    });
+  }
+
+  private async getForCustomer(userId: number, id: number) {
+    const appointment = await this.prisma.appointment.findFirst({
+      where: { id, deletedAt: null },
+    });
+
+    if (!appointment) {
+      throw new NotFoundException('Appointment not found');
+    }
+    if (appointment.customerId !== userId) {
+      throw new ForbiddenException(
+        'You are not the customer for this appointment',
+      );
+    }
+
+    return appointment;
   }
 
   private assertStatus(

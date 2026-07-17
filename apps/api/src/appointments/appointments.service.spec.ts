@@ -28,6 +28,10 @@ describe('AppointmentsService', () => {
       update: jest.fn(),
       count: jest.fn(),
     },
+    review: {
+      findUnique: jest.fn(),
+      create: jest.fn(),
+    },
   };
 
   beforeEach(async () => {
@@ -235,6 +239,80 @@ describe('AppointmentsService', () => {
       const result = await service.confirm(5, 1);
 
       expect(result.status).toBe(AppointmentStatus.CONFIRMED);
+    });
+  });
+
+  describe('review', () => {
+    it('rejects a caller who is not the customer of the appointment', async () => {
+      prismaMock.appointment.findFirst.mockResolvedValue({
+        id: 1,
+        customerId: 99,
+        status: AppointmentStatus.COMPLETED,
+      });
+
+      await expect(service.review(5, 1, { rating: 5 })).rejects.toThrow(
+        ForbiddenException,
+      );
+    });
+
+    it('rejects reviewing an appointment that is not COMPLETED', async () => {
+      prismaMock.appointment.findFirst.mockResolvedValue({
+        id: 1,
+        customerId: 5,
+        status: AppointmentStatus.CONFIRMED,
+      });
+
+      await expect(service.review(5, 1, { rating: 5 })).rejects.toThrow(
+        UnprocessableEntityException,
+      );
+    });
+
+    it('rejects reviewing the same appointment twice', async () => {
+      prismaMock.appointment.findFirst.mockResolvedValue({
+        id: 1,
+        customerId: 5,
+        salonId: 1,
+        status: AppointmentStatus.COMPLETED,
+      });
+      prismaMock.review.findUnique.mockResolvedValue({ id: 1 });
+
+      await expect(service.review(5, 1, { rating: 5 })).rejects.toThrow(
+        ConflictException,
+      );
+    });
+
+    it('creates the review for a COMPLETED appointment', async () => {
+      prismaMock.appointment.findFirst.mockResolvedValue({
+        id: 1,
+        customerId: 5,
+        salonId: 1,
+        status: AppointmentStatus.COMPLETED,
+      });
+      prismaMock.review.findUnique.mockResolvedValue(null);
+      prismaMock.review.create.mockResolvedValue({
+        id: 1,
+        appointmentId: 1,
+        salonId: 1,
+        customerId: 5,
+        rating: 5,
+        comment: 'عالی بود',
+      });
+
+      const result = await service.review(5, 1, {
+        rating: 5,
+        comment: 'عالی بود',
+      });
+
+      expect(prismaMock.review.create).toHaveBeenCalledWith({
+        data: {
+          appointmentId: 1,
+          salonId: 1,
+          customerId: 5,
+          rating: 5,
+          comment: 'عالی بود',
+        },
+      });
+      expect(result.rating).toBe(5);
     });
   });
 });

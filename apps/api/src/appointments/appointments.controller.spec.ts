@@ -18,6 +18,7 @@ describe('AppointmentsController', () => {
     complete: jest.fn(),
     noShow: jest.fn(),
     cancel: jest.fn(),
+    review: jest.fn(),
   };
 
   const req = {
@@ -70,5 +71,11 @@ describe('AppointmentsController', () => {
 
     await controller.cancel(req, 5);
     expect(serviceMock.cancel).toHaveBeenCalledWith(1, 5);
+  });
+
+  it('scopes review to the caller', async () => {
+    const dto = { rating: 5, comment: 'عالی بود' };
+    await controller.review(req, 5, dto);
+    expect(serviceMock.review).toHaveBeenCalledWith(1, 5, dto);
   });
 });

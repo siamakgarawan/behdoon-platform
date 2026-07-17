@@ -1,7 +1,9 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
+  HttpCode,
   Param,
   ParseIntPipe,
   Patch,
@@ -22,6 +24,7 @@ import { CreateSalonDto } from './dto/create-salon.dto';
 import { UpdateSalonDto } from './dto/update-salon.dto';
 import { VerifySalonDto } from './dto/verify-salon.dto';
 import { SetWorkingHoursDto } from './dto/set-working-hours.dto';
+import { AddSalonPhotoDto } from './dto/add-salon-photo.dto';
 
 interface AuthenticatedRequest extends Request {
   user: {
@@ -83,5 +86,23 @@ export class SalonsController {
   @Patch(':id/verify')
   verify(@Param('id', ParseIntPipe) id: number, @Body() data: VerifySalonDto) {
     return this.salonsService.setVerified(id, data.verified);
+  }
+
+  @ApiBearerAuth()
+  @UseGuards(JwtGuard)
+  @Post('me/photos')
+  addPhoto(@Req() req: AuthenticatedRequest, @Body() data: AddSalonPhotoDto) {
+    return this.salonsService.addPhoto(req.user.id, data);
+  }
+
+  @ApiBearerAuth()
+  @UseGuards(JwtGuard)
+  @Delete('me/photos/:photoId')
+  @HttpCode(204)
+  removePhoto(
+    @Req() req: AuthenticatedRequest,
+    @Param('photoId', ParseIntPipe) photoId: number,
+  ) {
+    return this.salonsService.removePhoto(req.user.id, photoId);
   }
 }

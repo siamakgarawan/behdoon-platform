@@ -1,6 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import {
   ConflictException,
+  ForbiddenException,
   NotFoundException,
   UnprocessableEntityException,
 } from '@nestjs/common';
@@ -25,6 +26,14 @@ describe('SalonsService', () => {
       deleteMany: jest.fn(),
       createMany: jest.fn(),
       findMany: jest.fn(),
+    },
+    salonPhoto: {
+      create: jest.fn(),
+      findFirst: jest.fn(),
+      delete: jest.fn(),
+    },
+    review: {
+      groupBy: jest.fn(),
     },
     $transaction: jest.fn(),
   };
@@ -103,6 +112,21 @@ describe('SalonsService', () => {
     });
   });
 
+  it('attaches a rating summary to each salon in findAll', async () => {
+    prismaMock.salon.findMany.mockResolvedValue([{ id: 1 }, { id: 2 }]);
+    prismaMock.salon.count.mockResolvedValue(2);
+    prismaMock.review.groupBy.mockResolvedValue([
+      { salonId: 1, _avg: { rating: 4.5 }, _count: { rating: 2 } },
+    ]);
+
+    const result = await service.findAll(1, 20);
+
+    expect(result.data).toEqual([
+      { id: 1, rating: { average: 4.5, count: 2 } },
+      { id: 2, rating: { average: null, count: 0 } },
+    ]);
+  });
+
   it('throws NotFoundException when the caller has no salon profile', async () => {
     prismaMock.salon.findFirst.mockResolvedValue(null);
 
@@ -134,5 +158,48 @@ describe('SalonsService', () => {
 
     expect(prismaMock.$transaction).toHaveBeenCalled();
     expect(result).toHaveLength(1);
+  });
+
+  it("adds a photo to the caller's own salon", async () => {
+    prismaMock.salon.findFirst.mockResolvedValue({ id: 1 });
+    prismaMock.salonPhoto.create.mockResolvedValue({
+      id: 9,
+      salonId: 1,
+      url: 'https://x/y.jpg',
+    });
+
+    const result = await service.addPhoto(5, { url: 'https://x/y.jpg' });
+
+    expect(prismaMock.salonPhoto.create).toHaveBeenCalledWith({
+      data: { salonId: 1, url: 'https://x/y.jpg' },
+    });
+    expect(result).toEqual({ id: 9, salonId: 1, url: 'https://x/y.jpg' });
+  });
+
+  it('rejects removing a photo owned by a different salon', async () => {
+    prismaMock.salon.findFirst.mockResolvedValue({ id: 1 });
+    prismaMock.salonPhoto.findFirst.mockResolvedValue({ id: 9, salonId: 99 });
+
+    await expect(service.removePhoto(5, 9)).rejects.toThrow(ForbiddenException);
+  });
+
+  it('throws NotFoundException when removing a photo that does not exist', async () => {
+    prismaMock.salon.findFirst.mockResolvedValue({ id: 1 });
+    prismaMock.salonPhoto.findFirst.mockResolvedValue(null);
+
+    await expect(service.removePhoto(5, 999)).rejects.toThrow(
+      NotFoundException,
+    );
+  });
+
+  it("removes a photo owned by the caller's salon", async () => {
+    prismaMock.salon.findFirst.mockResolvedValue({ id: 1 });
+    prismaMock.salonPhoto.findFirst.mockResolvedValue({ id: 9, salonId: 1 });
+
+    await service.removePhoto(5, 9);
+
+    expect(prismaMock.salonPhoto.delete).toHaveBeenCalledWith({
+      where: { id: 9 },
+    });
   });
 });

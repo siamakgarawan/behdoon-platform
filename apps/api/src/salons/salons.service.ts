@@ -1,5 +1,6 @@
 import {
   ConflictException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
   UnprocessableEntityException,
@@ -9,6 +10,12 @@ import { PrismaService } from '../prisma/prisma.service';
 import { CreateSalonDto } from './dto/create-salon.dto';
 import { UpdateSalonDto } from './dto/update-salon.dto';
 import { SetWorkingHoursDto } from './dto/set-working-hours.dto';
+import { AddSalonPhotoDto } from './dto/add-salon-photo.dto';
+
+export interface RatingSummary {
+  average: number | null;
+  count: number;
+}
 
 @Injectable()
 export class SalonsService {
@@ -49,8 +56,13 @@ export class SalonsService {
       this.prisma.salon.count({ where }),
     ]);
 
+    const ratings = await this.ratingsFor(data.map((salon) => salon.id));
+
     return {
-      data,
+      data: data.map((salon) => ({
+        ...salon,
+        rating: ratings.get(salon.id) ?? { average: null, count: 0 },
+      })),
       meta: { page, limit, total, totalPages: Math.ceil(total / limit) },
     };
   }
@@ -61,6 +73,11 @@ export class SalonsService {
       include: {
         services: { where: { deletedAt: null } },
         workingHours: true,
+        photos: { orderBy: { createdAt: 'asc' } },
+        reviews: {
+          orderBy: { createdAt: 'desc' },
+          include: { customer: { select: { name: true } } },
+        },
       },
     });
 
@@ -68,7 +85,9 @@ export class SalonsService {
       throw new NotFoundException('Salon not found');
     }
 
-    return salon;
+    const ratings = await this.ratingsFor([id]);
+
+    return { ...salon, rating: ratings.get(id) ?? { average: null, count: 0 } };
   }
 
   async findByUserId(userId: number) {
@@ -121,5 +140,50 @@ export class SalonsService {
       where: { salonId: salon.id },
       orderBy: { weekday: 'asc' },
     });
+  }
+
+  async addPhoto(userId: number, data: AddSalonPhotoDto) {
+    const salon = await this.findByUserId(userId);
+    return this.prisma.salonPhoto.create({
+      data: { salonId: salon.id, url: data.url },
+    });
+  }
+
+  async removePhoto(userId: number, photoId: number): Promise<void> {
+    const salon = await this.findByUserId(userId);
+    const photo = await this.prisma.salonPhoto.findFirst({
+      where: { id: photoId },
+    });
+
+    if (!photo) {
+      throw new NotFoundException('Photo not found');
+    }
+    if (photo.salonId !== salon.id) {
+      throw new ForbiddenException('You do not own this photo');
+    }
+
+    await this.prisma.salonPhoto.delete({ where: { id: photoId } });
+  }
+
+  private async ratingsFor(
+    salonIds: number[],
+  ): Promise<Map<number, RatingSummary>> {
+    if (salonIds.length === 0) {
+      return new Map();
+    }
+
+    const grouped = await this.prisma.review.groupBy({
+      by: ['salonId'],
+      where: { salonId: { in: salonIds } },
+      _avg: { rating: true },
+      _count: { rating: true },
+    });
+
+    return new Map(
+      grouped.map((row) => [
+        row.salonId,
+        { average: row._avg.rating, count: row._count.rating },
+      ]),
+    );
   }
 }

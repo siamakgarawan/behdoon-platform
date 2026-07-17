@@ -17,6 +17,8 @@ describe('SalonsController', () => {
     updateOwn: jest.fn(),
     setVerified: jest.fn(),
     setWorkingHours: jest.fn(),
+    addPhoto: jest.fn(),
+    removePhoto: jest.fn(),
   };
 
   const req = {
@@ -69,5 +71,16 @@ describe('SalonsController', () => {
   it('delegates verify to the service', async () => {
     await controller.verify(1, { verified: true });
     expect(serviceMock.setVerified).toHaveBeenCalledWith(1, true);
+  });
+
+  it('scopes addPhoto to the caller', async () => {
+    const dto = { url: 'https://x/y.jpg' };
+    await controller.addPhoto(req, dto);
+    expect(serviceMock.addPhoto).toHaveBeenCalledWith(5, dto);
+  });
+
+  it('scopes removePhoto to the caller', async () => {
+    await controller.removePhoto(req, 9);
+    expect(serviceMock.removePhoto).toHaveBeenCalledWith(5, 9);
   });
 });

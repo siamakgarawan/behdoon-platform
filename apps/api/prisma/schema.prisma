@@ -34,6 +34,7 @@ model User {
 
   salon        Salon?
   appointments Appointment[]
+  reviews      Review[]
 
   @@index([role])
 }
@@ -45,6 +46,10 @@ model Salon {
   bio       String?
   city      String
   address   String
+  phone     String?
+  instagram String?
+  latitude  Float?
+  longitude Float?
   verified  Boolean   @default(false)
   createdAt DateTime  @default(now())
   updatedAt DateTime  @default(now()) @updatedAt
@@ -54,9 +59,22 @@ model Salon {
   services     Service[]
   workingHours WorkingHour[]
   appointments Appointment[]
+  photos       SalonPhoto[]
+  reviews      Review[]
 
   @@index([verified])
   @@index([city])
+}
+
+model SalonPhoto {
+  id        Int      @id @default(autoincrement())
+  salonId   Int
+  url       String
+  createdAt DateTime @default(now())
+
+  salon Salon @relation(fields: [salonId], references: [id])
+
+  @@index([salonId])
 }
 
 model WorkingHour {
@@ -119,9 +137,26 @@ model Appointment {
   customer User    @relation(fields: [customerId], references: [id])
   salon    Salon   @relation(fields: [salonId], references: [id])
   service  Service @relation(fields: [serviceId], references: [id])
+  review   Review?
 
   @@index([customerId])
   @@index([salonId])
   @@index([serviceId])
   @@index([startAt])
+}
+
+model Review {
+  id            Int      @id @default(autoincrement())
+  appointmentId Int      @unique
+  salonId       Int
+  customerId    Int
+  rating        Int
+  comment       String?
+  createdAt     DateTime @default(now())
+
+  appointment Appointment @relation(fields: [appointmentId], references: [id])
+  salon       Salon       @relation(fields: [salonId], references: [id])
+  customer    User        @relation(fields: [customerId], references: [id])
+
+  @@index([salonId])
 }

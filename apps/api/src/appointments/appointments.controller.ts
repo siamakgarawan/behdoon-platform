@@ -15,6 +15,7 @@ import { JwtGuard } from '../auth/jwt/jwt.guard';
 import { PaginationQueryDto } from '../common/dto/pagination-query.dto';
 import { AppointmentsService } from './appointments.service';
 import { CreateAppointmentDto } from './dto/create-appointment.dto';
+import { CreateReviewDto } from './dto/create-review.dto';
 
 interface AuthenticatedRequest extends Request {
   user: {
@@ -107,5 +108,16 @@ export class AppointmentsController {
     @Param('id', ParseIntPipe) id: number,
   ) {
     return this.appointmentsService.cancel(req.user.id, id);
+  }
+
+  @ApiBearerAuth()
+  @UseGuards(JwtGuard)
+  @Post('appointments/:id/review')
+  review(
+    @Req() req: AuthenticatedRequest,
+    @Param('id', ParseIntPipe) id: number,
+    @Body() data: CreateReviewDto,
+  ) {
+    return this.appointmentsService.review(req.user.id, id, data);
   }
 }
