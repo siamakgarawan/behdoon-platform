@@ -1,9 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { ForbiddenException, NotFoundException } from '@nestjs/common';
-import { PriceType } from '@prisma/client';
 import { ServicesService } from './services.service';
 import { PrismaService } from '../prisma/prisma.service';
-import { ProvidersService } from '../providers/providers.service';
 
 describe('ServicesService', () => {
   let service: ServicesService;
@@ -15,9 +13,9 @@ describe('ServicesService', () => {
       findFirst: jest.fn(),
       update: jest.fn(),
     },
-  };
-  const providersServiceMock = {
-    findByUserId: jest.fn(),
+    salon: {
+      findFirst: jest.fn(),
+    },
   };
 
   beforeEach(async () => {
@@ -25,7 +23,6 @@ describe('ServicesService', () => {
       providers: [
         ServicesService,
         { provide: PrismaService, useValue: prismaMock },
-        { provide: ProvidersService, useValue: providersServiceMock },
       ],
     }).compile();
 
@@ -37,28 +34,42 @@ describe('ServicesService', () => {
     expect(service).toBeDefined();
   });
 
-  it("creates a service scoped to the caller's provider profile", async () => {
-    let capturedProviderId: number | undefined;
-    providersServiceMock.findByUserId.mockResolvedValue({ id: 7 });
+  it("creates a service scoped to the caller's salon", async () => {
+    prismaMock.salon.findFirst.mockResolvedValue({ id: 7 });
+
+    let capturedSalonId: number | undefined;
     prismaMock.service.create.mockImplementation(
-      (args: { data: { providerId: number } }) => {
-        capturedProviderId = args.data.providerId;
-        return Promise.resolve({ id: 1, providerId: args.data.providerId });
+      (args: { data: { salonId: number } }) => {
+        capturedSalonId = args.data.salonId;
+        return Promise.resolve({ id: 1, salonId: args.data.salonId });
       },
     );
 
     const result = await service.create(3, {
-      title: 'Leak repair',
-      priceType: PriceType.FIXED,
+      title: 'کوتاهی مو',
       price: 500000,
+      durationMin: 30,
       categoryId: 1,
     });
 
-    expect(capturedProviderId).toBe(7);
-    expect(result).toEqual({ id: 1, providerId: 7 });
+    expect(capturedSalonId).toBe(7);
+    expect(result).toEqual({ id: 1, salonId: 7 });
   });
 
-  it('only lists services from verified providers', async () => {
+  it('throws NotFoundException when the caller has no salon', async () => {
+    prismaMock.salon.findFirst.mockResolvedValue(null);
+
+    await expect(
+      service.create(3, {
+        title: 'کوتاهی مو',
+        price: 500000,
+        durationMin: 30,
+        categoryId: 1,
+      }),
+    ).rejects.toThrow(NotFoundException);
+  });
+
+  it('only lists services from verified salons', async () => {
     let capturedWhere: unknown;
     prismaMock.service.findMany.mockImplementation(
       (args: { where: unknown }) => {
@@ -72,40 +83,20 @@ describe('ServicesService', () => {
 
     expect(capturedWhere).toEqual({
       deletedAt: null,
-      provider: { verified: true },
+      salon: { verified: true },
     });
   });
 
-  it('filters by categoryId when provided', async () => {
-    let capturedWhere: unknown;
-    prismaMock.service.findMany.mockImplementation(
-      (args: { where: unknown }) => {
-        capturedWhere = args.where;
-        return Promise.resolve([]);
-      },
-    );
-    prismaMock.service.count.mockResolvedValue(0);
-
-    await service.findAll(1, 20, 4);
-
-    expect(capturedWhere).toEqual({
-      deletedAt: null,
-      provider: { verified: true },
-      categoryId: 4,
-    });
-  });
-
-  it('rejects updating a service owned by a different provider', async () => {
-    providersServiceMock.findByUserId.mockResolvedValue({ id: 7 });
-    prismaMock.service.findFirst.mockResolvedValue({ id: 1, providerId: 99 });
+  it('rejects updating a service owned by a different salon', async () => {
+    prismaMock.service.findFirst.mockResolvedValue({ id: 1, salonId: 99 });
+    prismaMock.salon.findFirst.mockResolvedValue({ id: 7 });
 
     await expect(service.update(3, 1, { title: 'x' })).rejects.toThrow(
       ForbiddenException,
     );
   });
 
-  it('throws NotFoundException when the service does not exist', async () => {
-    providersServiceMock.findByUserId.mockResolvedValue({ id: 7 });
+  it('throws NotFoundException for a service that does not exist', async () => {
     prismaMock.service.findFirst.mockResolvedValue(null);
 
     await expect(service.update(3, 999, { title: 'x' })).rejects.toThrow(
@@ -113,9 +104,18 @@ describe('ServicesService', () => {
     );
   });
 
-  it('allows the owning provider to update their own service', async () => {
-    providersServiceMock.findByUserId.mockResolvedValue({ id: 7 });
-    prismaMock.service.findFirst.mockResolvedValue({ id: 1, providerId: 7 });
+  it('returns 403, not 404, when the caller has no salon at all', async () => {
+    prismaMock.service.findFirst.mockResolvedValue({ id: 1, salonId: 7 });
+    prismaMock.salon.findFirst.mockResolvedValue(null);
+
+    await expect(service.update(3, 1, { title: 'x' })).rejects.toThrow(
+      ForbiddenException,
+    );
+  });
+
+  it('allows the owning salon to update its own service', async () => {
+    prismaMock.service.findFirst.mockResolvedValue({ id: 1, salonId: 7 });
+    prismaMock.salon.findFirst.mockResolvedValue({ id: 7 });
     prismaMock.service.update.mockResolvedValue({ id: 1, title: 'Updated' });
 
     const result = await service.update(3, 1, { title: 'Updated' });

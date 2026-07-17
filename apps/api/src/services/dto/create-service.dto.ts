@@ -1,16 +1,8 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { PriceType } from '@prisma/client';
-import {
-  IsEnum,
-  IsInt,
-  IsOptional,
-  IsString,
-  Min,
-  ValidateIf,
-} from 'class-validator';
+import { IsInt, IsOptional, IsString, Min } from 'class-validator';
 
 export class CreateServiceDto {
-  @ApiProperty({ example: 'Leak repair' })
+  @ApiProperty({ example: 'کوتاهی مو' })
   @IsString()
   title: string;
 
@@ -19,23 +11,15 @@ export class CreateServiceDto {
   @IsString()
   description?: string;
 
-  @ApiProperty({ enum: PriceType })
-  @IsEnum(PriceType)
-  priceType: PriceType;
-
-  @ApiPropertyOptional({
-    description: 'Rial. Required for FIXED/HOURLY, omitted for QUOTE.',
-  })
-  @ValidateIf((dto: CreateServiceDto) => dto.priceType !== PriceType.QUOTE)
+  @ApiProperty({ description: 'Rial' })
   @IsInt()
   @Min(0)
-  price?: number;
+  price: number;
 
-  @ApiPropertyOptional({ description: 'Minutes' })
-  @IsOptional()
+  @ApiProperty({ description: 'Minutes' })
   @IsInt()
-  @Min(1)
-  duration?: number;
+  @Min(5)
+  durationMin: number;
 
   @ApiProperty()
   @IsInt()

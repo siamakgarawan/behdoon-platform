@@ -13,22 +13,12 @@ enum UserRole {
   ADMIN
 }
 
-enum PriceType {
-  FIXED
-  HOURLY
-  QUOTE
-}
-
-enum JobStatus {
-  REQUESTED
-  QUOTED
-  ACCEPTED
-  SCHEDULED
-  IN_PROGRESS
+enum AppointmentStatus {
+  PENDING
+  CONFIRMED
   COMPLETED
-  PAID
   CANCELLED
-  DISPUTED
+  NO_SHOW
 }
 
 model User {
@@ -42,17 +32,19 @@ model User {
   updatedAt DateTime  @default(now()) @updatedAt
   deletedAt DateTime?
 
-  provider  ProviderProfile?
-  addresses Address[]
-  jobs      Job[]
+  salon        Salon?
+  appointments Appointment[]
 
   @@index([role])
 }
 
-model ProviderProfile {
+model Salon {
   id        Int       @id @default(autoincrement())
   userId    Int       @unique
+  name      String
   bio       String?
+  city      String
+  address   String
   verified  Boolean   @default(false)
   createdAt DateTime  @default(now())
   updatedAt DateTime  @default(now()) @updatedAt
@@ -60,25 +52,24 @@ model ProviderProfile {
 
   user         User          @relation(fields: [userId], references: [id])
   services     Service[]
-  serviceAreas ServiceArea[]
-  jobs         Job[]
+  workingHours WorkingHour[]
+  appointments Appointment[]
 
   @@index([verified])
+  @@index([city])
 }
 
-model ServiceArea {
-  id         Int      @id @default(autoincrement())
-  providerId Int
-  city       String
-  district   String?
-  radiusKm   Int?
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @default(now()) @updatedAt
+model WorkingHour {
+  id        Int    @id @default(autoincrement())
+  salonId   Int
+  weekday   Int // 0 = Sunday .. 6 = Saturday
+  startTime String // "09:00"
+  endTime   String // "18:00"
 
-  provider ProviderProfile @relation(fields: [providerId], references: [id])
+  salon Salon @relation(fields: [salonId], references: [id])
 
-  @@index([providerId])
-  @@index([city])
+  @@unique([salonId, weekday])
+  @@index([salonId])
 }
 
 model Category {
@@ -95,75 +86,42 @@ model Service {
   id          Int       @id @default(autoincrement())
   title       String
   description String?
-  priceType   PriceType
-  price       Int?
-  duration    Int?
+  price       Int
+  durationMin Int
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @default(now()) @updatedAt
   deletedAt   DateTime?
 
-  providerId Int
+  salonId    Int
   categoryId Int
 
-  provider ProviderProfile @relation(fields: [providerId], references: [id])
-  category Category        @relation(fields: [categoryId], references: [id])
-  jobs     Job[]
+  salon        Salon         @relation(fields: [salonId], references: [id])
+  category     Category      @relation(fields: [categoryId], references: [id])
+  appointments Appointment[]
 
-  @@index([providerId])
+  @@index([salonId])
   @@index([categoryId])
 }
 
-model Address {
-  id         Int      @id @default(autoincrement())
-  userId     Int
-  label      String?
-  city       String
-  district   String?
-  line1      String
-  line2      String?
-  postalCode String?
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @default(now()) @updatedAt
-
-  user User  @relation(fields: [userId], references: [id])
-  jobs Job[]
-
-  @@index([userId])
-}
-
-model Quote {
-  id        Int      @id @default(autoincrement())
-  jobId     Int      @unique
-  amount    Int
-  note      String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @default(now()) @updatedAt
-
-  job Job @relation(fields: [jobId], references: [id])
-}
-
-model Job {
-  id          Int       @id @default(autoincrement())
-  status      JobStatus @default(REQUESTED)
-  scheduledAt DateTime?
-  completedAt DateTime?
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @default(now()) @updatedAt
-  deletedAt   DateTime?
+model Appointment {
+  id        Int               @id @default(autoincrement())
+  status    AppointmentStatus @default(PENDING)
+  startAt   DateTime
+  endAt     DateTime
+  createdAt DateTime          @default(now())
+  updatedAt DateTime          @default(now()) @updatedAt
+  deletedAt DateTime?
 
   customerId Int
-  providerId Int
+  salonId    Int
   serviceId  Int
-  addressId  Int
 
-  customer User            @relation(fields: [customerId], references: [id])
-  provider ProviderProfile @relation(fields: [providerId], references: [id])
-  service  Service         @relation(fields: [serviceId], references: [id])
-  address  Address         @relation(fields: [addressId], references: [id])
-  quote    Quote?
+  customer User    @relation(fields: [customerId], references: [id])
+  salon    Salon   @relation(fields: [salonId], references: [id])
+  service  Service @relation(fields: [serviceId], references: [id])
 
   @@index([customerId])
-  @@index([providerId])
+  @@index([salonId])
   @@index([serviceId])
-  @@index([status])
+  @@index([startAt])
 }

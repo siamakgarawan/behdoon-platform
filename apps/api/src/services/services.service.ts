@@ -4,29 +4,24 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { ProvidersService } from '../providers/providers.service';
 import { CreateServiceDto } from './dto/create-service.dto';
 import { UpdateServiceDto } from './dto/update-service.dto';
 
 @Injectable()
 export class ServicesService {
-  constructor(
-    private prisma: PrismaService,
-    private providersService: ProvidersService,
-  ) {}
+  constructor(private prisma: PrismaService) {}
 
   async create(userId: number, data: CreateServiceDto) {
-    const profile = await this.providersService.findByUserId(userId);
+    const salon = await this.getOwnSalon(userId);
 
     return this.prisma.service.create({
       data: {
         title: data.title,
         description: data.description,
-        priceType: data.priceType,
         price: data.price,
-        duration: data.duration,
+        durationMin: data.durationMin,
         categoryId: data.categoryId,
-        providerId: profile.id,
+        salonId: salon.id,
       },
     });
   }
@@ -34,7 +29,7 @@ export class ServicesService {
   async findAll(page: number, limit: number, categoryId?: number) {
     const where = {
       deletedAt: null,
-      provider: { verified: true },
+      salon: { verified: true },
       ...(categoryId ? { categoryId } : {}),
     };
 
@@ -44,7 +39,7 @@ export class ServicesService {
         skip: (page - 1) * limit,
         take: limit,
         orderBy: { id: 'asc' as const },
-        include: { category: true },
+        include: { category: true, salon: true },
       }),
       this.prisma.service.count({ where }),
     ]);
@@ -56,9 +51,9 @@ export class ServicesService {
   }
 
   async findMine(userId: number) {
-    const profile = await this.providersService.findByUserId(userId);
+    const salon = await this.getOwnSalon(userId);
     return this.prisma.service.findMany({
-      where: { providerId: profile.id, deletedAt: null },
+      where: { salonId: salon.id, deletedAt: null },
       orderBy: { id: 'asc' },
     });
   }
@@ -66,10 +61,7 @@ export class ServicesService {
   async findOne(id: number) {
     const service = await this.prisma.service.findFirst({
       where: { id, deletedAt: null },
-      include: {
-        category: true,
-        provider: { include: { user: { select: { id: true, name: true } } } },
-      },
+      include: { category: true, salon: true },
     });
 
     if (!service) {
@@ -92,8 +84,19 @@ export class ServicesService {
     });
   }
 
+  private async getOwnSalon(userId: number) {
+    const salon = await this.prisma.salon.findFirst({
+      where: { userId, deletedAt: null },
+    });
+
+    if (!salon) {
+      throw new NotFoundException('You do not have a salon profile');
+    }
+
+    return salon;
+  }
+
   private async assertOwnership(userId: number, serviceId: number) {
-    const profile = await this.providersService.findByUserId(userId);
     const service = await this.prisma.service.findFirst({
       where: { id: serviceId, deletedAt: null },
     });
@@ -102,7 +105,11 @@ export class ServicesService {
       throw new NotFoundException('Service not found');
     }
 
-    if (service.providerId !== profile.id) {
+    const salon = await this.prisma.salon.findFirst({
+      where: { userId, deletedAt: null },
+    });
+
+    if (!salon || service.salonId !== salon.id) {
       throw new ForbiddenException('You do not own this service');
     }
 

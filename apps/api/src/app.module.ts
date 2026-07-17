@@ -7,10 +7,9 @@ import { RedisModule } from './redis/redis.module';
 import { UsersModule } from './users/users.module';
 import { AuthModule } from './auth/auth.module';
 import { CategoriesModule } from './categories/categories.module';
-import { ProvidersModule } from './providers/providers.module';
+import { SalonsModule } from './salons/salons.module';
 import { ServicesModule } from './services/services.module';
-import { AddressesModule } from './addresses/addresses.module';
-import { JobsModule } from './jobs/jobs.module';
+import { AppointmentsModule } from './appointments/appointments.module';
 
 @Module({
   imports: [
@@ -22,10 +21,9 @@ import { JobsModule } from './jobs/jobs.module';
     UsersModule,
     AuthModule,
     CategoriesModule,
-    ProvidersModule,
+    SalonsModule,
     ServicesModule,
-    AddressesModule,
-    JobsModule,
+    AppointmentsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

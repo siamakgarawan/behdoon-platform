@@ -1,6 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { Request } from 'express';
-import { PriceType } from '@prisma/client';
 import { ServicesController } from './services.controller';
 import { ServicesService } from './services.service';
 
@@ -49,15 +48,15 @@ describe('ServicesController', () => {
 
   it('creates a service scoped to the caller', async () => {
     await controller.create(req, {
-      title: 'Leak repair',
-      priceType: PriceType.FIXED,
+      title: 'کوتاهی مو',
       price: 500000,
+      durationMin: 30,
       categoryId: 1,
     });
 
     expect(serviceMock.create).toHaveBeenCalledWith(
       3,
-      expect.objectContaining({ title: 'Leak repair' }),
+      expect.objectContaining({ title: 'کوتاهی مو' }),
     );
   });
 
